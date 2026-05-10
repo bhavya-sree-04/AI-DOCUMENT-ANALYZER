@@ -1,8 +1,64 @@
-import React, { useState , useEffect , useRef} from "react";
+import React, { useState , useEffect , useRef , useCallback} from "react";
 import axios from "axios";
 import ATSScoreCircle from "./components/ATSScoreCircle";
 import { Trash2 } from "lucide-react";
+import {
+
+  Routes,
+  Route
+
+} from "react-router-dom";
+
+import Login
+from "./pages/Login";
+
+import Signup
+from "./pages/Signup";
+
+import Verify
+from "./pages/Verify";
+
+import {  signOut , getCurrentUser
+} from "aws-amplify/auth";
+
+import { useNavigate
+} from "react-router-dom";
+
 export default function App() {
+
+  
+  const navigate =
+  useNavigate();
+
+
+const handleLogout =
+async () => {
+
+  try {
+
+    await signOut({
+
+      global: true
+    });
+
+    setAuthenticated(false);
+
+    localStorage.clear();
+
+    sessionStorage.clear();
+
+    navigate(
+      "/",
+      { replace: true }
+    );
+
+    window.location.reload();
+
+  } catch (error) {
+
+    console.error(error);
+  }
+};  
 
   const [file, setFile] = useState(null);
 
@@ -14,6 +70,34 @@ export default function App() {
   const [loading, setLoading] = useState(false);
 
   const [recentFiles, setRecentFiles] = useState([]);
+  const [authenticated,
+
+setAuthenticated] =
+  useState(false);
+  const handleDelete =
+async (id) => {
+  console.log(id);
+
+  try {
+
+    await axios.delete(
+
+      `http://localhost:5000/upload/documents/${id}`
+    );
+
+    setRecentFiles(
+
+      recentFiles.filter(
+
+        item => item._id !== id
+      )
+    );
+
+  } catch (error) {
+
+    console.error(error);
+  }
+};
 
   // CHAT STATES
   const [question, setQuestion] = useState("");
@@ -98,11 +182,7 @@ const handleDrop = (e) => {
   // =====================================
 // LOAD DOCUMENTS FROM DATABASE
 // =====================================
-useEffect(() => {
 
-  fetchDocuments();
-
-}, []);
 // =====================================
 // AUTO SCROLL CHAT
 // =====================================
@@ -115,6 +195,38 @@ useEffect(() => {
 
 }, [messages]);
 
+const checkAuth =
+useCallback(async () => {
+
+  try {
+
+    await getCurrentUser();
+
+    setAuthenticated(true);
+    if (
+
+  window.location.pathname === "/"
+
+) {
+
+  navigate("/dashboard");
+}
+
+  } catch {
+
+    setAuthenticated(false);
+
+    navigate("/");
+  }
+}, [navigate]);
+
+useEffect(() => {
+
+  checkAuth();
+
+  fetchDocuments();
+
+}, [checkAuth]);
 
 const fetchDocuments = async () => {
 
@@ -196,6 +308,8 @@ const fetchDocuments = async () => {
       setRecentFiles((prev) => [
 
         {
+          _id: res.data.documentId,
+
           name: file.name,
 
           type: res.data.documentType,
@@ -339,8 +453,7 @@ const fetchDocuments = async () => {
     }
   };
 
-
-  return (
+const dashboardUI = (
 
     <div className="
       min-h-screen
@@ -417,6 +530,9 @@ const fetchDocuments = async () => {
           ">
             Dashboard
           </button>
+       
+
+
 
 
           {/* RECENT FILES */}
@@ -490,46 +606,28 @@ const fetchDocuments = async () => {
     {item.name}
   </p>
 
-  <button
+ <button
 
-    onClick={(e) => {
+  onClick={(e) => {
 
-      e.stopPropagation();
+    e.stopPropagation();
 
-      const updatedFiles =
+    handleDelete(item._id);
+  }}
 
-        recentFiles.filter(
+  className="
+    text-gray-400
+    hover:text-gray-300
+    transition
+    p-1
+    rounded-md
+    hover:bg-gray-500/10
+  "
+>
 
-          (_, i) => i !== index
-        );
+  <Trash2 size={16} />
 
-      setRecentFiles(
-        updatedFiles
-      );
-
-      localStorage.setItem(
-
-        "recentFiles",
-
-        JSON.stringify(
-          updatedFiles
-        )
-      );
-    }}
-
-    className="
-  text-gray-400
-  hover:text-gray-300
-  transition
-  p-1
-  rounded-md
-  hover:bg-gray-500/10
-"
-  >
-
-   <Trash2 size={16} />
-
-  </button>
+</button>
 
 </div>
                     <div className="
@@ -629,26 +727,56 @@ const fetchDocuments = async () => {
       ">
 
         {/* HEADER */}
-        <div className="
-          mb-8
-        ">
+<div className="
+  flex
+  justify-between
+  items-start
+  mb-8
+">
 
-          <h2 className="
-            text-4xl
-            font-bold
-            mb-2
-          ">
-            AI Document Analyzer
-          </h2>
+  <div>
 
-          <p className="
-            text-gray-400
-            text-lg
-          ">
-            Upload documents and extract AI-powered insights instantly.
-          </p>
+    <h2 className="
+      text-4xl
+      font-bold
+      mb-2
+    ">
+      AI Document Analyzer
+    </h2>
 
-        </div>
+    <p className="
+      text-gray-400
+      text-lg
+    ">
+      Upload documents and extract AI-powered insights instantly.
+    </p>
+
+  </div>
+
+
+  <button
+
+    onClick={handleLogout}
+
+    className="
+      bg-[#1F2937]
+      border
+      border-gray-700
+      px-5
+      py-3
+      rounded-2xl
+      text-sm
+      hover:border-red-500
+      hover:text-red-400
+      transition
+    "
+  >
+
+    Logout
+
+  </button>
+
+</div>
 
 
         {/* UPLOAD CARD */}
@@ -1359,5 +1487,66 @@ const fetchDocuments = async () => {
       </div>
 
     </div>
+  );
+  return (
+
+  <Routes>
+
+    <Route
+
+  path="/"
+
+  element={
+
+    authenticated
+
+      ? dashboardUI
+
+      : <Login />
+  }
+/>
+
+   <Route
+
+  path="/signup"
+
+  element={
+
+    authenticated
+
+      ? dashboardUI
+
+      : <Signup />
+  }
+/>
+    <Route
+
+  path="/verify"
+
+  element={
+
+    authenticated
+
+      ? dashboardUI
+
+      : <Verify />
+  }
+/>
+
+    <Route
+
+  path="/dashboard"
+
+  element={
+
+    authenticated
+
+      ? dashboardUI
+
+      : <Login />
+  }
+/>
+
+  </Routes>
   );
 }

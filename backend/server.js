@@ -4,7 +4,11 @@ require("dotenv").config();
 
 const uploadRoute = require("./routes/upload");
 
+const connectDB = require("./config/db");
 const app = express();
+connectDB();
+
+
 
 app.use(cors());
 app.use(express.json());
